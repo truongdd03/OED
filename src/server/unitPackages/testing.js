@@ -127,10 +127,69 @@ describe('mathjs unit system', () => {
 				// console.log(threeHWBulb.toNumber(megajoules));
 			});
 
-			// it('should support custom linear units', () => {
+			describe('should support chain conversion between custom units', () => {
+				it('energy base', () => {
+					const BTU = 'BTU';
+					const kWh = 'kWh';
+					const megajoules = 'MJ'
 
-			// });
+					// In one hour...
+					const hWConfigObject = {
+						definition: '0.1 kWh'
+					};
+					const hWBulb = 'hundredWattBulb';
 
+					const twoHWConfigObject = {
+						definition: '0.2 kWh'
+					};
+					const twoHWBulb = 'twoHundredWattBulb';
+
+					// math.createUnit(hWBulb, hWConfigObject);  causes error because we create this unit in the previous test.
+					math.createUnit(twoHWBulb, twoHWConfigObject);
+
+					const threeHWBulb = math.unit(3, hWBulb);
+					const threeTwoHWBulb = math.unit(3, twoHWBulb);
+
+					expect(threeTwoHWBulb.toNumber(hWBulb)).to.equal(6);
+					// const threeHWBulbINkWH = math.unit(0.3, kWh);
+
+					// expect(threeHWBulb.toNumber(megajoules)).to.equal(threeHWBulbINkWH.toNumber(megajoules));
+
+					// const threeMJInHWBulb = threeMJ.toNumber(kWh) / 0.1;
+					// expect(threeMJ.toNumber(hWBulb)).to.equal(threeMJInHWBulb);
+				});
+
+				it('energy to currency and vice-versa', () => {
+					const CAN = 'CAN';
+					const EURO = 'EURO';
+					const USD = 'USD';
+
+					const CANConfigObject = {
+						definition: `${1/13} BTU`,
+						baseName: 'currency'
+					};
+
+					const EUROConfigObject = {
+						definition: `1.17592994 ${USD}`,
+						baseName: 'currency'
+					};
+
+					const USDConfigObject = {
+						definition: `${1/0.11} kWh`,
+						baseName: 'currency'
+					};
+
+					// Order matters
+					math.createUnit(CAN, CANConfigObject);
+					math.createUnit(USD, USDConfigObject);
+					math.createUnit(EURO, EUROConfigObject);
+
+					const dollar = math.unit(10000, USD);
+					console.log(dollar.toNumeric(CAN));
+					console.log(dollar.toNumeric(EURO));
+					
+				});
+			});
 		})
 	});
 });
