@@ -1,3 +1,9 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
 const { describe, it } = require('mocha');
 const { expect } = require('chai');
 const math = require('mathjs');
@@ -17,10 +23,10 @@ describe('mathjs unit system', () => {
 		// expect(thirteenCMInFeet.toNumber('cm')).to.be.equal(thirteenCM.toNumber());
 
 		// library test
-		expect(thirteenCM.equals(thirteenCM.to('m'))).to.be.true; // true
-		expect(thirteenCMInFeet.equals(thirteenCMInFeet.to('ft'))).to.be.true; // true
+		expect(thirteenCM.equals(thirteenCM.to('m'))).to.equal(true); // true
+		expect(thirteenCMInFeet.equals(thirteenCMInFeet.to('ft'))).to.equal(true); // true
 
-		expect(thirteenCM.equalBase(thirteenCMInFeet)).to.be.true;
+		expect(thirteenCM.equalBase(thirteenCMInFeet)).to.equal(true);
 
 		// These unexpectedly failed. They failed because of rounding issues.
 		// expect(thirteenCM.equals(thirteenCMInFeet)).to.be.true;
@@ -54,9 +60,9 @@ describe('mathjs unit system', () => {
 		const inCelsius = math.unit(5, CelsiusUnit);
 		const inFahrenheit = math.unit(41, FahrenheitUnit);
 
-		expect(inCelsius.equalBase(inFahrenheit)).to.be.true;
+		expect(inCelsius.equalBase(inFahrenheit)).to.equal(true);
 
-		expect(inCelsius.equals(inFahrenheit)).to.be.true;
+		expect(inCelsius.equals(inFahrenheit)).to.equal(true);
 
 		// Compare raw values; we use closeTo rather than equals because equals would fail due to rounding errors.
 		expect(inCelsius.to(FahrenheitUnit).toNumber()).to.be.closeTo(inFahrenheit.toNumber(), 0.0001);
@@ -78,7 +84,8 @@ describe('mathjs unit system', () => {
 		// const kWhToMJ = 3.6;
 		// const kWhExampleInMJ = math.unit(kWhExample.toNumber() * kWhToMJ, megajoules);
 
-		expect(math.add(threeBTU, kWhExample).toNumber(megajoules)).to.be.closeTo(threeBTU.toNumber(megajoules) + kWhExample.toNumber(megajoules), 0.00000001);
+		expect(math.add(threeBTU, kWhExample).toNumber(megajoules)).to.be
+			.closeTo(threeBTU.toNumber(megajoules) + kWhExample.toNumber(megajoules), 0.00000001);
 	});
 
 	describe('chain conversion', () => {
@@ -87,10 +94,15 @@ describe('mathjs unit system', () => {
 			const hundredWattBulb = 'hundredWattBulb';
 			const hundredWattBulbConfigObject = {
 				definition: '0.1 kWh',
-				baseName: 'object',
+				baseName: 'object'
 			};
 
-			math.createUnit(hundredWattBulb, hundredWattBulbConfigObject, { override: true }); // We override due to defining this unit in other places in the code.
+			math.createUnit(hundredWattBulb,
+				hundredWattBulbConfigObject,
+				{
+					override: true // We override due to defining this unit in other places in the code.
+				}
+			);
 			expect(math.evaluate('3000 BTU').toNumber(hundredWattBulb)).to.be.closeTo(9, 1);
 		});
 
@@ -171,12 +183,12 @@ describe('mathjs unit system', () => {
 
 		const EURO = 'EURO';
 		const EUROConfigObject = {
-			definition: `1.17592994 ${USD}`,
+			definition: `1.17592994 ${USD}`
 		};
 
 		const CAN = 'CAN';
 		const CANConfigObject = {
-			definition: `0.79885 ${USD}`,
+			definition: `0.79885 ${USD}`
 		};
 
 		const BTUUnitPRice = 'BTUUnitPrice';
@@ -226,7 +238,7 @@ describe('mathjs unit system', () => {
 		 * @param {string} currency The currency of the cost
 		 * @returns An math.unit object of the price of the provided amount of energy in the specified unit.
 		 */
-		function priceOfEnergy(energy, unit, currency){
+		function priceOfEnergy(energy, unit, currency) {
 			const unitPrice = unit + 'UnitPrice';
 			const amountOfUnit = math.unit(energy).toNumber(unit);
 			return math.evaluate(`${amountOfUnit} ${unitPrice}`).toNumber(currency);
@@ -236,7 +248,7 @@ describe('mathjs unit system', () => {
 		expect(priceOfEnergy('1 BTU', 'kWh', 'USD')).to.be.closeTo(0.000293071 * 0.11, 0.0001); // 1 BTU = 0.000293071 kWh
 
 		// 1 lightbulb = 0.1 kWh; 0.1 kWh = 341.214 BTU; 341.214 BTU = 4435.782 CAN; 4435.782 CAN = 3543.5244507 USD
-		expect(priceOfEnergy('1 hundredWattBulb', 'BTU', 'USD')).to.be.closeTo(3543.5244507, 0.01); 
+		expect(priceOfEnergy('1 hundredWattBulb', 'BTU', 'USD')).to.be.closeTo(3543.5244507, 0.01);
 		expect(priceOfEnergy('1 hundredWattBulb', 'kWh', 'USD')).to.be.closeTo(0.1 * 0.11, 0.0001);
 	});
 });
