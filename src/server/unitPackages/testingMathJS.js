@@ -144,7 +144,7 @@ describe('mathjs unit system', () => {
 		});
 	});
 
-	it('should ideally be able to link different bases', () => {
+	it('should ideally be able to link different dimensions', () => {
 		// In the previous two examples of lightbulbs and currency we attempted to link
 		// non-SI units (i.e. lightbulbs and currency) to SI units. For the simple lightbulb
 		// case, we could define one hundred watt bulb in terms of kWh. However, in the currency
