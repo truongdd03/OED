@@ -87,57 +87,156 @@ describe('mathjs unit system', () => {
 			const hundredWattBulb = 'hundredWattBulb';
 			const hundredWattBulbConfigObject = {
 				definition: '0.1 kWh',
-				baseName: 'object'
+				baseName: 'object',
 			};
 
-			math.createUnit(hundredWattBulb, hundredWattBulbConfigObject);
+			math.createUnit(hundredWattBulb, hundredWattBulbConfigObject, { override: true }); // We override due to defining this unit in other places in the code.
 			expect(math.evaluate('3000 BTU').toNumber(hundredWattBulb)).to.be.closeTo(9, 1);
 		});
 
 		describe('example with currency', () => {
-				const USD = 'USD';
-				const USDConfigObject = {
-					baseName: 'currency'
-				};
+			const USD = 'USD';
+			const USDConfigObject = {
+				baseName: 'currency'
+			};
 
-				const EURO = 'EURO';
-				const EUROConfigObject = {
-					definition: `1.17592994 ${USD}`,
-					baseName: 'currency'
-				};
+			const EURO = 'EURO';
+			const EUROConfigObject = {
+				definition: `1.17592994 ${USD}`,
+				baseName: 'currency'
+			};
 
-				const CAN = 'CAN';
-				const CANConfigObject = {
-					definition: `0.79885 ${USD}`,
-					baseName: 'currency'
-				};
+			const CAN = 'CAN';
+			const CANConfigObject = {
+				definition: `0.79885 ${USD}`,
+				baseName: 'currency'
+			};
 
-				math.createUnit(USD, USDConfigObject); // our unit that all other units will be defined on
-				math.createUnit(EURO, EUROConfigObject);
-				math.createUnit(CAN, CANConfigObject);
+			math.createUnit(USD, USDConfigObject); // our unit that all other units will be defined on
+			math.createUnit(EURO, EUROConfigObject);
+			math.createUnit(CAN, CANConfigObject);
 
-				// I think we need to separate the scientific units themselves from their relation to other units...
-				const BTUUnitPRice = 'BTUUnitPrice';
-				const BTUUnitPRiceConfig = {
-					definition: `13 ${CAN}`,
-					baseName: 'unitPrice'
-				};
+			// I think we need to separate the scientific units themselves from their relation to other units...
+			const BTUUnitPRice = 'BTUUnitPrice';
+			const BTUUnitPRiceConfig = {
+				definition: `13 ${CAN}`,
+				baseName: 'unitPrice'
+			};
 
-				const kWhUnitPrice = 'kWhUnitPrice';
-				const kWhUnitPriceConfig = {
-					definition: `0.11 ${USD}`,
-					baseName: 'unitPrice'
-				};
+			const kWhUnitPrice = 'kWhUnitPrice';
+			const kWhUnitPriceConfig = {
+				definition: `0.11 ${USD}`,
+				baseName: 'unitPrice'
+			};
 
-				math.createUnit(BTUUnitPRice, BTUUnitPRiceConfig);
-				math.createUnit(kWhUnitPrice, kWhUnitPriceConfig);
+			math.createUnit(BTUUnitPRice, BTUUnitPRiceConfig);
+			math.createUnit(kWhUnitPrice, kWhUnitPriceConfig);
 
-				console.log(math.evaluate('123 kWhUnitPrice + 3 BTUUnitPrice').toNumber(EURO)); // 37.99984036463941
-				console.log(math.evaluate('123 kWhUnitPrice').toNumber(USD)); // 13.53
-				console.log(math.evaluate('3 BTUUnitPrice').toNumber(CAN)); // 39
-				console.log(math.evaluate('123 kWhUnitPrice').toNumber(EURO)); // 11.505787496149642
-				console.log(math.evaluate('3 BTUUnitPrice').toNumber(EURO)); // 26.494052868489764
+			console.log(math.evaluate('123 kWhUnitPrice + 3 BTUUnitPrice').toNumber(EURO)); // 37.99984036463941
+			console.log(math.evaluate('123 kWhUnitPrice').toNumber(USD)); // 13.53
+			console.log(math.evaluate('3 BTUUnitPrice').toNumber(CAN)); // 39
+			console.log(math.evaluate('123 kWhUnitPrice').toNumber(EURO)); // 11.505787496149642
+			console.log(math.evaluate('3 BTUUnitPrice').toNumber(EURO)); // 26.494052868489764
+			// NOTE: math#evaluate may be a security concern because it can parse certain methods such that the createUnit method.
+			// For example, the following evaluation would create the knot unit:
+			// math.evaluate('45 mile/hour to createUnit("knot", "0.514444m/s")') // 39.103964668651976 knot
+
 		});
 	});
 
+	it('should ideally be able to link different bases', () => {
+		// In the previous two examples of lightbulbs and currency we attempted to link
+		// non-SI units (i.e. lightbulbs and currency) to SI units. For the simple lightbulb
+		// case, we could define one hundred watt bulb in terms of kWh. However, in the currency
+		// example, we have to define the price of kWh and BTU separate from the actual SI units.
+		// This is because of inconsistencies of pricing. We said that 1 BTU costs 13 CAN$ and 
+		// 1 kWh costs 0.11 USD. The existing relationship between BTUs to kWh is that 1 kWh = 3412.14 BTU (googled it).
+		// This results in an inconsistency as multiplying both sides of 1 BTU = 13 CAN by the conversion factor from kWh to BTU
+		// results in 1 kWh = 44357.82 CAN = 35435.244507 USD which would be an internal contradiction. 
+		// Because of this problem we had to define the prices of the energy units independent of the SI themselves (aside from sharing the similar names).
+		// It is still however important to be able to link the prices of energy units back to the the energy units themselves. 
+		// For example, how much would a hundred watt lightbulb cost to run for an hour in EURO? 
+		// This means that OED may have to build off of mathjs Unit system to interface user-defined units with existing SI units.
+		// The following example is an attempt to do that by relying on strict naming conventions of the user-defined units.
+
+		// Initialize units as constants
+		const hundredWattBulb = 'hundredWattBulb';
+		const hundredWattBulbConfigObject = {
+			definition: '0.1 kWh',
+			baseName: 'object'
+		};
+
+		const USD = 'USD';
+		const USDConfigObject = {}; // empty because USD will serve as a base unit for other units.
+
+		const EURO = 'EURO';
+		const EUROConfigObject = {
+			definition: `1.17592994 ${USD}`,
+		};
+
+		const CAN = 'CAN';
+		const CANConfigObject = {
+			definition: `0.79885 ${USD}`,
+		};
+
+		const BTUUnitPRice = 'BTUUnitPrice';
+		const BTUUnitPRiceConfig = {
+			definition: `13 ${CAN}`,
+			baseName: 'unitPrice'
+		};
+
+		const kWhUnitPrice = 'kWhUnitPrice';
+		const kWhUnitPriceConfig = {
+			definition: `0.11 ${USD}`,
+			baseName: 'unitPrice'
+		};
+		math.createUnit({
+			[hundredWattBulb]: hundredWattBulbConfigObject
+		},
+			{
+				override: true // We override because this unit was defined in a previous test case.
+			}
+		);
+
+		math.createUnit({
+			[USD]: USDConfigObject,
+			[EURO]: EUROConfigObject,
+			[CAN]: CANConfigObject
+		},
+			{
+				baseName: 'currency',
+				override: true // We override because this unit was defined in a previous test case.
+			}
+		);
+
+		math.createUnit({
+			[BTUUnitPRice]: BTUUnitPRiceConfig,
+			[kWhUnitPrice]: kWhUnitPriceConfig
+		},
+			{
+				baseName: 'unitPrice',
+				override: true // We override because this unit was defined in a previous test case.
+			}
+		);
+
+		/**
+		 * 
+		 * @param {string} energy A string representation of an unit of energy or defined on energy units, i.e. '1 BTU' or '1 hundredWattBulb'
+		 * @param {string} unit The energy unit whose price we will measure 
+		 * @param {string} currency The currency of the cost
+		 * @returns An math.unit object of the price of the provided amount of energy in the specified unit.
+		 */
+		function priceOfEnergy(energy, unit, currency){
+			const unitPrice = unit + 'UnitPrice';
+			const amountOfUnit = math.unit(energy).toNumber(unit);
+			return math.evaluate(`${amountOfUnit} ${unitPrice}`).toNumber(currency);
+		}
+
+		expect(priceOfEnergy('1 BTU', 'BTU', 'CAN')).to.equal(13);
+		expect(priceOfEnergy('1 BTU', 'kWh', 'USD')).to.be.closeTo(0.000293071 * 0.11, 0.0001); // 1 BTU = 0.000293071 kWh
+
+		// 1 lightbulb = 0.1 kWh; 0.1 kWh = 341.214 BTU; 341.214 BTU = 4435.782 CAN; 4435.782 CAN = 3543.5244507 USD
+		expect(priceOfEnergy('1 hundredWattBulb', 'BTU', 'USD')).to.be.closeTo(3543.5244507, 0.01); 
+		expect(priceOfEnergy('1 hundredWattBulb', 'kWh', 'USD')).to.be.closeTo(0.1 * 0.11, 0.0001);
+	});
 });
