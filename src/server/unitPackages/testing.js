@@ -132,11 +132,11 @@ describe('mathjs unit system', () => {
 			math.createUnit(BTUUnitPRice, BTUUnitPRiceConfig);
 			math.createUnit(kWhUnitPrice, kWhUnitPriceConfig);
 
-			console.log(math.evaluate('123 kWhUnitPrice + 3 BTUUnitPrice').toNumber(EURO)); // 37.99984036463941
-			console.log(math.evaluate('123 kWhUnitPrice').toNumber(USD)); // 13.53
-			console.log(math.evaluate('3 BTUUnitPrice').toNumber(CAN)); // 39
-			console.log(math.evaluate('123 kWhUnitPrice').toNumber(EURO)); // 11.505787496149642
-			console.log(math.evaluate('3 BTUUnitPrice').toNumber(EURO)); // 26.494052868489764
+			expect(math.evaluate('123 kWhUnitPrice + 3 BTUUnitPrice').toNumber(EURO)).to.be.closeTo(38, 0.1); // 37.99984036463941
+			expect(math.evaluate('123 kWhUnitPrice').toNumber(USD)).to.be.closeTo(13.53, 0.1); // 13.53
+			expect(math.evaluate('3 BTUUnitPrice').toNumber(CAN)).to.equal(39); // 39
+			expect(math.evaluate('123 kWhUnitPrice').toNumber(EURO)).to.be.closeTo(11.51, 0.1); // 11.505787496149642
+			expect(math.evaluate('3 BTUUnitPrice').toNumber(EURO)).to.be.closeTo(26.49, 0.1); // 26.494052868489764
 			// NOTE: math#evaluate may be a security concern because it can parse certain methods such that the createUnit method.
 			// For example, the following evaluation would create the knot unit:
 			// math.evaluate('45 mile/hour to createUnit("knot", "0.514444m/s")') // 39.103964668651976 knot
