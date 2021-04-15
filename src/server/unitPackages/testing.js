@@ -1,21 +1,3 @@
-
-// const a = math.unit(45, 'cm')             // Unit 450 mm
-// const b = math.unit('0.1 kilogram')       // Unit 100 gram
-// const c = math.unit('2 inch')             // Unit 2 inch
-// const e = math.unit('101325 kg/(m s^2)')  // Unit 101325 kg / (m s^2)
-
-// const d = c.to('cm')                      // Unit 5.08 cm
-// b.toNumber('gram')                        // Number 100
-// math.number(b, 'gram')                    // Number 100
-
-// console.log(a.toNumber('in'));
-// console.log(c.equals(a))                               // false
-// c.equals(d)                               // true
-// c.equalBase(a)                            // true
-// c.equalBase(b)                            // false
-
-// d.toString()                              // String "5.08 cm"
-
 const { describe, it } = require('mocha');
 const { expect } = require('chai');
 const math = require('mathjs');
@@ -99,97 +81,63 @@ describe('mathjs unit system', () => {
 		expect(math.add(threeBTU, kWhExample).toNumber(megajoules)).to.be.closeTo(threeBTU.toNumber(megajoules) + kWhExample.toNumber(megajoules), 0.00000001);
 	});
 
-	describe('user defined units (ideally)', () => {
-		describe('from existing units', () => {
-			it('should support custom multiplicative units', () => {
-				const BTU = 'BTU';
-				const kWh = 'kWh';
-				const megajoules = 'MJ'
+	describe('chain conversion', () => {
 
-				// In one hour...
-				const configObject = {
-					definition: '0.1 kWh'
+		it('should pass the example with lightbulbs', () => {
+			const hundredWattBulb = 'hundredWattBulb';
+			const hundredWattBulbConfigObject = {
+				definition: '0.1 kWh',
+				baseName: 'object'
+			};
+
+			math.createUnit(hundredWattBulb, hundredWattBulbConfigObject);
+			expect(math.evaluate('3000 BTU').toNumber(hundredWattBulb)).to.be.closeTo(9, 1);
+		});
+
+		describe('example with currency', () => {
+				const USD = 'USD';
+				const USDConfigObject = {
+					baseName: 'currency'
 				};
-				const hWBulb = 'hundredWattBulb';
-				const hundredWattBulb = math.createUnit(hWBulb, configObject);
 
-				const threeMJ = math.unit(3, megajoules);
-				const threeHWBulb = math.unit(3, hWBulb);
-				const threeHWBulbINkWH = math.unit(0.3, kWh);
+				const EURO = 'EURO';
+				const EUROConfigObject = {
+					definition: `1.17592994 ${USD}`,
+					baseName: 'currency'
+				};
 
-				expect(threeHWBulb.toNumber(megajoules)).to.equal(threeHWBulbINkWH.toNumber(megajoules));
+				const CAN = 'CAN';
+				const CANConfigObject = {
+					definition: `0.79885 ${USD}`,
+					baseName: 'currency'
+				};
 
-				const threeMJInHWBulb = threeMJ.toNumber(kWh) / 0.1;
-				expect(threeMJ.toNumber(hWBulb)).to.equal(threeMJInHWBulb);
+				math.createUnit(USD, USDConfigObject); // our unit that all other units will be defined on
+				math.createUnit(EURO, EUROConfigObject);
+				math.createUnit(CAN, CANConfigObject);
 
-				// console.log(threeMJ.toNumber(hWBulb));
+				// I think we need to separate the scientific units themselves from their relation to other units...
+				const BTUUnitPRice = 'BTUUnitPrice';
+				const BTUUnitPRiceConfig = {
+					definition: `13 ${CAN}`,
+					baseName: 'unitPrice'
+				};
 
-				// console.log(threeHWBulb.toNumber(megajoules));
-			});
+				const kWhUnitPrice = 'kWhUnitPrice';
+				const kWhUnitPriceConfig = {
+					definition: `0.11 ${USD}`,
+					baseName: 'unitPrice'
+				};
 
-			describe('should support chain conversion between custom units', () => {
-				it('energy base', () => {
-					const BTU = 'BTU';
-					const kWh = 'kWh';
-					const megajoules = 'MJ'
+				math.createUnit(BTUUnitPRice, BTUUnitPRiceConfig);
+				math.createUnit(kWhUnitPrice, kWhUnitPriceConfig);
 
-					// In one hour...
-					const hWConfigObject = {
-						definition: '0.1 kWh'
-					};
-					const hWBulb = 'hundredWattBulb';
-
-					const twoHWConfigObject = {
-						definition: '0.2 kWh'
-					};
-					const twoHWBulb = 'twoHundredWattBulb';
-
-					// math.createUnit(hWBulb, hWConfigObject);  causes error because we create this unit in the previous test.
-					math.createUnit(twoHWBulb, twoHWConfigObject);
-
-					const threeHWBulb = math.unit(3, hWBulb);
-					const threeTwoHWBulb = math.unit(3, twoHWBulb);
-
-					expect(threeTwoHWBulb.toNumber(hWBulb)).to.equal(6);
-					// const threeHWBulbINkWH = math.unit(0.3, kWh);
-
-					// expect(threeHWBulb.toNumber(megajoules)).to.equal(threeHWBulbINkWH.toNumber(megajoules));
-
-					// const threeMJInHWBulb = threeMJ.toNumber(kWh) / 0.1;
-					// expect(threeMJ.toNumber(hWBulb)).to.equal(threeMJInHWBulb);
-				});
-
-				it('energy to currency and vice-versa', () => {
-					const CAN = 'CAN';
-					const EURO = 'EURO';
-					const USD = 'USD';
-
-					const CANConfigObject = {
-						definition: `${1/13} BTU`,
-						baseName: 'currency'
-					};
-
-					const EUROConfigObject = {
-						definition: `1.17592994 ${USD}`,
-						baseName: 'currency'
-					};
-
-					const USDConfigObject = {
-						definition: `${1/0.11} kWh`,
-						baseName: 'currency'
-					};
-
-					// Order matters
-					math.createUnit(CAN, CANConfigObject);
-					math.createUnit(USD, USDConfigObject);
-					math.createUnit(EURO, EUROConfigObject);
-
-					const dollar = math.unit(10000, USD);
-					console.log(dollar.toNumeric(CAN));
-					console.log(dollar.toNumeric(EURO));
-					
-				});
-			});
-		})
+				console.log(math.evaluate('123 kWhUnitPrice + 3 BTUUnitPrice').toNumber(EURO)); // 37.99984036463941
+				console.log(math.evaluate('123 kWhUnitPrice').toNumber(USD)); // 13.53
+				console.log(math.evaluate('3 BTUUnitPrice').toNumber(CAN)); // 39
+				console.log(math.evaluate('123 kWhUnitPrice').toNumber(EURO)); // 11.505787496149642
+				console.log(math.evaluate('3 BTUUnitPrice').toNumber(EURO)); // 26.494052868489764
+		});
 	});
+
 });
