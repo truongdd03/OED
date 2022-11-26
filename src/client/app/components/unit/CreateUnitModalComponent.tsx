@@ -14,6 +14,7 @@ import TooltipMarkerComponent from '../TooltipMarkerComponent';
 import TooltipHelpContainer from '../../containers/TooltipHelpContainer';
 import { UnitRepresentType, DisplayableType, UnitType } from '../../types/redux/units';
 import { addUnit } from '../../actions/units';
+import { getMeterMenuOptionsForGroup } from '../../utils/determineCompatibleUnits';
 
 export default function CreateUnitModalComponent() {
 	const dispatch = useDispatch();
@@ -94,6 +95,9 @@ export default function CreateUnitModalComponent() {
 	const tableStyle: React.CSSProperties = {
 		width: '100%'
 	};
+
+	const tmp = getMeterMenuOptionsForGroup(2);
+	console.log(tmp);
 
 	return (
 		<>

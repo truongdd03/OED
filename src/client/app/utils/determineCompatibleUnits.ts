@@ -151,11 +151,10 @@ export function metersInGroup(groupId: number): Set<number> {
 export function getMeterMenuOptionsForGroup(gid: number): SelectOption[] {
 	const state = store.getState() as State;
 	// Get the currentGroup's compatible units.
-	const currentUnits = unitsCompatibleWithMeters(metersInGroup(gid))
+	const currentUnits = unitsCompatibleWithMeters(metersInGroup(gid));
 	// Current group's default graphic unit (via Redux).
 	const defaultGraphicUnit = state.groups.byGroupID[gid].defaultGraphicUnit;
 	// Get all meters.
-	// TODO: Why unit not null?
 	const meters = Object.values(state.meters.byMeterID) as MeterData[];
 
 	// Options for the meter menu.
@@ -166,13 +165,14 @@ export function getMeterMenuOptionsForGroup(gid: number): SelectOption[] {
 			label: meter.identifier,
 			value: meter.id,
 			isDisabled: false,
+			style: {},
 		} as SelectOption;
 
 		const compatibilityChangeCase = getCompatibilityChangeCase(currentUnits, meter.id, DataType.Meter, defaultGraphicUnit);
 		if (compatibilityChangeCase === GroupCase.NoCompatibleUnits) {
 			option.isDisabled = true;
 		} else {
-			// TODO: Handle font
+			option.style = getMenuOptionFont(compatibilityChangeCase);
 		}
 
 		options.push(option);
@@ -202,19 +202,73 @@ export function getMeterMenuOptionsForGroup(gid: number): SelectOption[] {
 			label: group.name,
 			value: group.id,
 			isDisabled: false,
+			style: {},
 		} as SelectOption;
 
-		const compatibilityChangeCase = getCompatibilityChangeCase(currentUnits, group.id, DataType.Meter, defaultGraphicUnit);
+		const compatibilityChangeCase = getCompatibilityChangeCase(currentUnits, group.id, DataType.Group, defaultGraphicUnit);
 		if (compatibilityChangeCase === GroupCase.NoCompatibleUnits) {
 			option.isDisabled = true;
 		} else {
-			// TODO: Handle font
+			option.style = getMenuOptionFont(compatibilityChangeCase);
 		}
 
 		options.push(option);
 	});
 
 	return options;
+}
+
+/**
+ * Determine if the change in compatible units of one group are okay with another group.
+ * Warn admin of changes. Throw an error if the changes shouldn't happen.
+ * @param gid The group's id.
+ */
+export function getGroupPostUpdateDiagnostics(gid: number): string {
+	// Get the currentGroup's compatible units.
+	const currentUnits = unitsCompatibleWithMeters(metersInGroup(gid));
+	// This will hold the overall message for the admin alert
+	let msg = '';
+	// Tells if the change should be cancelled
+	let cancel = false;
+	// 
+	// The groups containing this group can be found via getDeepGroupsByGroupID in src/server/models/Group.js and
+	// needs to be put somewhere so you can loop over them below.
+	// This could be routed through Redux state so it will be faster but that means the Redux group state needs holding the
+	// deep groups of each group needs to be update on each edit. Since this isn't a common operation, we will go to the
+	// database each time to get the correct values. If too slow we can reconsider.
+	// The returned groups will not change while this group is being edited.
+// for each group G containing gid {
+// 	// Get the case for group G if current group is changed.
+// 	integer case = compatibleChanges(currentUnits, G, DataType.group, G.default_graphic_unit)
+// 	if (case = 21) {
+// 	  msg += Group G.name will have its compatible units changed by the edit to this group\n
+// 	} else if (case = 22) {
+// 	  msg += Group G.name will have its compatible units changed and its default graphic unit set to no unit by the edit to this group\n
+// 	} else if (case = 3) {
+// 	  msg += Group G.name would have no compatible units by the edit to this group so the edit is cancelled\n
+// 	  cancel = true
+// 	}
+// 	// case 1 requires no message.
+//   }
+//   if (msg is not blank) {
+// 	if (cancel) {
+// 	  msg += \nTHE CHANGE TO THE GROUP IS CANCELLED"
+// 	  display msg with only okay choice
+// 	} else {
+// 	  msg += \nGiven the messages, do you want to cancel this change or continue?
+// 	  display msg with cancel and continue choices
+// 	  if user clicks cancel then set cancel variable to true
+// 	}
+//   }
+//   if (cancel) {
+// 	don't apply change and undo anything needed
+// 	// Don't add (or remove) gid from the groups in this group - probably just the menu choice just made.
+//   } else {
+// 	apply change to group
+// 	update all impacted groups. This is the loop above except instead of message you do what is stated. It may be possible to save the needed results from above to avoid most/all of the work.
+// 	Note since we are not currently using Redux state to get the deep groups, we only need to update the default graphic unit of the impacted groups.
+//   }
+	return msg;
 }
 
 /**
@@ -238,7 +292,7 @@ export const enum GroupCase {
  * @param type Can be METER or GROUP.
  * @param defaultGraphicUnit The default graphic unit.
  */
-export function getCompatibilityChangeCase(otherUnits: Set<number>, id: number, type: DataType, defaultGraphicUnit: number): GroupCase {
+function getCompatibilityChangeCase(otherUnits: Set<number>, id: number, type: DataType, defaultGraphicUnit: number): GroupCase {
 	// Determine the compatible units for meter or group represented by the id.
 	const newUnits = getCompatibleUnits(id, type);
 	// Returns the associated case.
@@ -258,8 +312,7 @@ function getCompatibleUnits(id: number, type: DataType): Set<number> {
 		// Returns all compatible units with this unit id.
 		return unitsCompatibleWithUnit(unitId);
 	} else {
-		// Note we do this once for each time we check all groups so place to optimize if needed.
-		// However, this is done with Redux state so it may be fine to just check each time and do that for now.
+		// Returns all compatible units with this group.
 		return unitsCompatibleWithMeters(metersInGroup(id));
 	}
 }
@@ -288,6 +341,20 @@ function groupCase(currentUnits: Set<number>, newUnits: Set<number>, defaultGrap
 		return GroupCase.LostCompatibleUnits;
 	}
 }
-// TODO The code for somethingLikeFont is missing.
 
-// TODO Who is doing the code for when the selected group/meter is changed?
+function getMenuOptionFont(compatibilityChangeCase: GroupCase): React.CSSProperties {
+	switch (compatibilityChangeCase) {
+		case GroupCase.NoChange:
+			return { color: 'black' };
+
+		case GroupCase.LostCompatibleUnits:
+			return { color: 'yellow' };
+		
+		case GroupCase.LostDefaultGraphicUnit:
+			return { color: 'red' };
+		
+		default:
+			// Should never reach here.
+			return {}
+	}
+}
