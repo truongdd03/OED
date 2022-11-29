@@ -150,10 +150,36 @@ router.get('/deep/meters/:group_id', async (req, res) => {
 	}
 });
 
+router.get('/parents/:group_id', async (req, res) => {
+	const validParams = {
+		type: 'object',
+		maxProperties: 1,
+		required: ['group_id'],
+		properties: {
+			group_id: {
+				type: 'string',
+				pattern: '^\\d+$'
+			}
+		}
+	};
+	if (!validate(req.params, validParams).valid) {
+		res.sendStatus(400);
+	} else {
+		const conn = getConnection();
+		try {
+			const parentGroups = await Group.getParentsByGroupID(req.params.group_id, conn);
+			res.json(parentGroups);
+		} catch (err) {
+			log.error(`Error while preforming GET on all parents of specific group: ${err}`, err);
+			res.sendStatus(500);
+		}
+	}
+});
+
 router.post('/create', adminAuthenticator('create groups'), async (req, res) => {
 	const validGroup = {
 		type: 'object',
-		maxProperties: 7,
+		maxProperties: 8,
 		required: ['name', 'childGroups', 'childMeters'],
 		properties: {
 			name: {
@@ -201,7 +227,8 @@ router.post('/create', adminAuthenticator('create groups'), async (req, res) => 
 				items: {
 					type: 'integer'
 				}
-			}
+			},
+			defaultGraphicUnit: { type: 'integer' }
 		}
 	};
 
@@ -219,7 +246,8 @@ router.post('/create', adminAuthenticator('create groups'), async (req, res) => 
 					req.body.displayable,
 					newGPS,
 					req.body.note,
-					req.body.area
+					req.body.area,
+					req.body.defaultGraphicUnit
 				);
 
 				await newGroup.insert(t);
@@ -242,7 +270,7 @@ router.post('/create', adminAuthenticator('create groups'), async (req, res) => 
 router.put('/edit', adminAuthenticator('edit groups'), async (req, res) => {
 	const validGroup = {
 		type: 'object',
-		maxProperties: 8,
+		maxProperties: 9,
 		required: ['id', 'name', 'childGroups', 'childMeters'],
 		properties: {
 			id: { type: 'integer' },
@@ -291,7 +319,8 @@ router.put('/edit', adminAuthenticator('edit groups'), async (req, res) => {
 				items: {
 					type: 'integer'
 				}
-			}
+			},
+			defaultGraphicUnit: { type: 'integer' }
 		}
 	};
 
@@ -313,7 +342,8 @@ router.put('/edit', adminAuthenticator('edit groups'), async (req, res) => {
 					req.body.displayable,
 					newGPS,
 					req.body.note,
-					req.body.area
+					req.body.area,
+					req.body.defaultGraphicUnit
 				);
 
 				await newGroup.update(t);
