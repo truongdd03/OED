@@ -7,10 +7,11 @@ import * as _ from 'lodash';
 import { MeterData } from '../types/redux/meters';
 import { ConversionArray } from '../types/conversionArray';
 import { UnitData, UnitType } from '../types/redux/units';
-import { GroupDefinition } from '../types/redux/groups';
+import { GroupData, GroupDefinition, GroupID } from '../types/redux/groups';
 import { DataType } from '../types/Datasources';
 import { State } from '../types/redux/state';
 import { SelectOption } from '../types/items';
+import { groupsApi } from './api';
 
 /**
  * The intersect operation of two sets.
@@ -185,7 +186,7 @@ export function getMeterMenuOptionsForGroup(gid: number): SelectOption[] {
  * Get options for the group menu on the group page.
  * @param gid The group's id.
  */
- export function getGroupMenuOptionsForGroup(gid: number): SelectOption[] {
+export function getGroupMenuOptionsForGroup(gid: number): SelectOption[] {
 	const state = store.getState() as State;
 	// Get the currentGroup's compatible units.
 	const currentUnits = unitsCompatibleWithMeters(metersInGroup(gid))
@@ -219,56 +220,131 @@ export function getMeterMenuOptionsForGroup(gid: number): SelectOption[] {
 }
 
 /**
- * Determine if the change in compatible units of one group are okay with another group.
- * Warn admin of changes. Throw an error if the changes shouldn't happen.
- * @param gid The group's id.
+ * Validates and warns user when adding a child group/meter to a specific group.
+ * If the check pass, update the edited group and related groups.
+ * @param gid The id of the group to assign the child.
+ * @param childId The group/meter's id to add to the parent group.
+ * @param childType Can be group or meter.
  */
-export function getGroupPostUpdateDiagnostics(gid: number): string {
-	// Get the currentGroup's compatible units.
-	const currentUnits = unitsCompatibleWithMeters(metersInGroup(gid));
-	// This will hold the overall message for the admin alert
+export async function assignChildToGroup(gid: number, childId: number, childType: DataType): Promise<void> {
+	const state = store.getState() as State;
+	// Get the group to add the child.
+	// Note that this is not a deep copy. Changes make to this object will change the redux state.
+	const group = state.groups.byGroupID[gid];
+	// Create a deep copy of the group before adding the child.
+	// At the end, if the check fails or if admin doesn't want to apply the change, we set the redux state to this copy.
+	const oldGroup = JSON.parse(JSON.stringify(group));
+	// Add the child to this group.
+	// Note that the group's deep meters may be duplicated but that doesn't cause any problem to the check.
+	if (childType === DataType.Meter) {
+		group.childMeters.push(childId);
+		group.deepMeters.push(childId);
+	} else {
+		group.childGroups.push(childId);
+		group.deepMeters.push(...state.groups.byGroupID[childId].deepMeters);
+	}
+	console.log('New group', group);
+	// Get the group's compatible units.
+	const compatibleUnits = unitsCompatibleWithMeters(new Set(group.deepMeters));
+	console.log('compatible units', compatibleUnits);
+	// Get all parent groups of this group.
+	const parentGroupIDs = await groupsApi.getParentIDs(gid);
+	console.log('Parent group', parentGroupIDs);
+	const shouldUpdate = await validateGroupPostAddChild(gid, parentGroupIDs);
+	// If the admin wants to apply changes.
+	if (shouldUpdate) {
+		console.log('UPDATE');
+		// Update the group. Now, the changes actually happen.
+		await applyChangesToGroup(group);
+		// Update related groups.
+		for (const parentID of parentGroupIDs) {
+			const parentGroup = state.groups.byGroupID[parentID] as GroupDefinition;
+			// Get parent's compatible units
+			const parentCompatibleUnits = unitsCompatibleWithMeters(metersInGroup(parentID));
+			// Get compatibility change case when add this group to its parent.
+			const compatibilityChangeCase = getCompatibilityChangeCase(parentCompatibleUnits, gid, DataType.Group, parentGroup.defaultGraphicUnit);
+			if (compatibilityChangeCase === GroupCase.LostDefaultGraphicUnit) {
+				// For parent groups, only default graphic units are affected.
+				parentGroup.defaultGraphicUnit = -99;
+				console.log(`Update parent group ${parentGroup.name}`);
+				await applyChangesToGroup(parentGroup);
+			}
+		}
+	} else {
+		// Reset the redux state for this gorup.
+		state.groups.byGroupID[gid] = oldGroup;
+	}
+}
+
+/**
+ * Determines if the change in compatible units of one group are okay with another group.
+ * Warns admin of changes and returns true if the changes should happen.
+ * @param gid The group that has a change in compatible units.
+ * @param parentGroupIDs The parent groups' ids of that group.
+ * @returns 
+ */
+async function validateGroupPostAddChild(gid: number, parentGroupIDs: number[]): Promise<boolean> {
+	const state = store.getState() as State;
+	// This will hold the overall message for the admin alert.
 	let msg = '';
-	// Tells if the change should be cancelled
+	// Tells if the change should be cancelled.
 	let cancel = false;
-	// 
-	// The groups containing this group can be found via getDeepGroupsByGroupID in src/server/models/Group.js and
-	// needs to be put somewhere so you can loop over them below.
-	// This could be routed through Redux state so it will be faster but that means the Redux group state needs holding the
-	// deep groups of each group needs to be update on each edit. Since this isn't a common operation, we will go to the
-	// database each time to get the correct values. If too slow we can reconsider.
-	// The returned groups will not change while this group is being edited.
-// for each group G containing gid {
-// 	// Get the case for group G if current group is changed.
-// 	integer case = compatibleChanges(currentUnits, G, DataType.group, G.default_graphic_unit)
-// 	if (case = 21) {
-// 	  msg += Group G.name will have its compatible units changed by the edit to this group\n
-// 	} else if (case = 22) {
-// 	  msg += Group G.name will have its compatible units changed and its default graphic unit set to no unit by the edit to this group\n
-// 	} else if (case = 3) {
-// 	  msg += Group G.name would have no compatible units by the edit to this group so the edit is cancelled\n
-// 	  cancel = true
-// 	}
-// 	// case 1 requires no message.
-//   }
-//   if (msg is not blank) {
-// 	if (cancel) {
-// 	  msg += \nTHE CHANGE TO THE GROUP IS CANCELLED"
-// 	  display msg with only okay choice
-// 	} else {
-// 	  msg += \nGiven the messages, do you want to cancel this change or continue?
-// 	  display msg with cancel and continue choices
-// 	  if user clicks cancel then set cancel variable to true
-// 	}
-//   }
-//   if (cancel) {
-// 	don't apply change and undo anything needed
-// 	// Don't add (or remove) gid from the groups in this group - probably just the menu choice just made.
-//   } else {
-// 	apply change to group
-// 	update all impacted groups. This is the loop above except instead of message you do what is stated. It may be possible to save the needed results from above to avoid most/all of the work.
-// 	Note since we are not currently using Redux state to get the deep groups, we only need to update the default graphic unit of the impacted groups.
-//   }
-	return msg;
+	for (const parentID of parentGroupIDs) {
+		const parentGroup = state.groups.byGroupID[parentID] as GroupDefinition;
+		// Get parent's compatible units
+		const parentCompatibleUnits = unitsCompatibleWithMeters(metersInGroup(parentID));
+		// Get compatibility change case when add this group to its parent.
+		const compatibilityChangeCase = getCompatibilityChangeCase(parentCompatibleUnits, gid, DataType.Group, parentGroup.defaultGraphicUnit);
+		switch (compatibilityChangeCase) {
+			case GroupCase.NoCompatibleUnits:
+				msg += `Group ${parentGroup.name} would have no compatible units by the edit to this group so the edit is cancelled\n`;
+				cancel = true;
+				break;
+
+			case GroupCase.LostDefaultGraphicUnit:
+				msg += `Group ${parentGroup.name} will have its compatible units changed and its default graphic unit set to no unit by the edit to this group\n`;
+				break;
+
+			case GroupCase.LostCompatibleUnits:
+				msg += `Group ${parentGroup.name} will have its compatible units changed by the edit to this group\n`;
+				break;
+
+			// Case NoChange requires no message.
+		}
+	}
+	if (msg !== '') {
+		if (cancel) {
+			msg += '\nTHE CHANGE TO THE GROUP IS CANCELLED';
+			window.alert(msg);
+		}
+		msg += '\nGiven the messages, do you want to cancel this change or continue?';
+		cancel = !window.confirm(msg);
+	}
+	return !cancel;
+}
+
+/**
+ * Calls the api to update a group.
+ * @param group The group to update.
+ */
+async function applyChangesToGroup(group: GroupDefinition): Promise<void> {
+	const groupData = {
+		id: group.id,
+		name: group.name,
+		displayable: group.displayable,
+		gps: group.gps,
+		note: group.note,
+		area: group.area,
+		childGroups: group.childGroups,
+		childMeters: group.childMeters,
+		defaultGraphicUnit: group.defaultGraphicUnit
+	} as GroupData & GroupID;
+	console.log('update', groupData);
+	const state = store.getState() as State;
+	// Update Redux state.
+	state.groups.byGroupID[group.id] = group;
+	// Update database.
+	// await groupsApi.edit(groupData);
 }
 
 /**
@@ -287,16 +363,17 @@ export const enum GroupCase {
 
 /**
  * Return the case associated if we add the given meter/group to a group.
- * @param otherUnits The current compatible units of the group
- * @param id The meter/group's id to add to the group.
+ * @param currentCompatibleUnits The current compatible units of the group.
+ * @param idToAdd The meter/group's id to add to the group.
  * @param type Can be METER or GROUP.
- * @param defaultGraphicUnit The default graphic unit.
+ * @param currentDefaultGraphicUnit The default graphic unit.
  */
-function getCompatibilityChangeCase(otherUnits: Set<number>, id: number, type: DataType, defaultGraphicUnit: number): GroupCase {
+function getCompatibilityChangeCase(currentCompatibleUnits: Set<number>, idToAdd: number, type: DataType, currentDefaultGraphicUnit: number): GroupCase {
 	// Determine the compatible units for meter or group represented by the id.
-	const newUnits = getCompatibleUnits(id, type);
+	const newUnits = getCompatibleUnits(idToAdd, type);
+	console.log(currentCompatibleUnits, newUnits);
 	// Returns the associated case.
-	return groupCase(otherUnits, newUnits, defaultGraphicUnit);
+	return groupCase(currentCompatibleUnits, newUnits, currentDefaultGraphicUnit);
 }
 
 /**
@@ -349,10 +426,10 @@ function getMenuOptionFont(compatibilityChangeCase: GroupCase): React.CSSPropert
 
 		case GroupCase.LostCompatibleUnits:
 			return { color: 'yellow' };
-		
+
 		case GroupCase.LostDefaultGraphicUnit:
 			return { color: 'red' };
-		
+
 		default:
 			// Should never reach here.
 			return {}
