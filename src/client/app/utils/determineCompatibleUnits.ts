@@ -166,7 +166,7 @@ export function getMeterMenuOptionsForGroup(gid: number): SelectOption[] {
 			label: meter.identifier,
 			value: meter.id,
 			isDisabled: false,
-			style: {},
+			style: {}
 		} as SelectOption;
 
 		const compatibilityChangeCase = getCompatibilityChangeCase(currentUnits, meter.id, DataType.Meter, defaultGraphicUnit);
@@ -203,7 +203,7 @@ export function getGroupMenuOptionsForGroup(gid: number): SelectOption[] {
 			label: group.name,
 			value: group.id,
 			isDisabled: false,
-			style: {},
+			style: {}
 		} as SelectOption;
 
 		const compatibilityChangeCase = getCompatibilityChangeCase(currentUnits, group.id, DataType.Group, defaultGraphicUnit);
@@ -275,7 +275,6 @@ export async function assignChildToGroup(gid: number, childId: number, childType
  * Warns admin of changes and returns true if the changes should happen.
  * @param gid The group that has a change in compatible units.
  * @param parentGroupIDs The parent groups' ids of that group.
- * @returns 
  */
 async function validateGroupPostAddChild(gid: number, parentGroupIDs: number[]): Promise<boolean> {
 	const state = store.getState() as State;
@@ -345,7 +344,7 @@ async function applyChangesToGroup(group: GroupDefinition): Promise<void> {
 
 /**
  * The four cases that could happen when adding a group/meter to a group:
- * 	- NoChange: Adding this meter/group will not change the compatible units for the group. 
+ * 	- NoChange: Adding this meter/group will not change the compatible units for the group.
  *  - LostCompatibleUnits: The meter/group is compatible with the default graphic unit although some compatible units are lost.
  *  - LostDefaultGraphicUnits: The meter/group is not compatible with the default graphic unit but there exists some compatible untis.
  *  - NoCompatibleUnits: The meter/group will cause the compatible units for the group to be empty.
@@ -359,16 +358,16 @@ export const enum GroupCase {
 
 /**
  * Return the case associated if we add the given meter/group to a group.
- * @param currentCompatibleUnits The current compatible units of the group.
+ * @param currentUnits The current compatible units of the group.
  * @param idToAdd The meter/group's id to add to the group.
  * @param type Can be METER or GROUP.
  * @param currentDefaultGraphicUnit The default graphic unit.
  */
-function getCompatibilityChangeCase(currentCompatibleUnits: Set<number>, idToAdd: number, type: DataType, currentDefaultGraphicUnit: number): GroupCase {
+function getCompatibilityChangeCase(currentUnits: Set<number>, idToAdd: number, type: DataType, currentDefaultGraphicUnit: number): GroupCase {
 	// Determine the compatible units for meter or group represented by the id.
 	const newUnits = getCompatibleUnits(idToAdd, type);
 	// Returns the associated case.
-	return groupCase(currentCompatibleUnits, newUnits, currentDefaultGraphicUnit);
+	return groupCase(currentUnits, newUnits, currentDefaultGraphicUnit);
 }
 
 /**
@@ -399,8 +398,8 @@ function groupCase(currentUnits: Set<number>, newUnits: Set<number>, defaultGrap
 	// The compatible units of a set of meters or groups is the intersection of the compatible units for each
 	// Thus, we can get the units that will go away with (- is set subtraction/difference):
 	// lostUnit = currentUnit - ( currentUnit n newUnits)
-	let intersection = setIntersect(currentUnits, newUnits);
-	let lostUnits = new Set(Array.from(currentUnits).filter(x => !intersection.has(x)));
+	const intersection = setIntersect(currentUnits, newUnits);
+	const lostUnits = new Set(Array.from(currentUnits).filter(x => !intersection.has(x)));
 
 	if (lostUnits.size == 0) {
 		return GroupCase.NoChange;
