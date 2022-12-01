@@ -77,7 +77,7 @@ mocha.describe('csv API', () => {
 		});
 		mocha.it('should be able to load unzipped readings data for an existing meter.', async () => {
 			const conn = testDB.getConnection();
-			const meter = new Meter(undefined, 'XXX', undefined, false, false, Meter.type.MAMAC, 'XXX')
+			const meter = new Meter(undefined, 'XXX', undefined, false, false, Meter.type.MAMAC, 'CST')
 			await meter.insert(conn); // insert meter
 			const res = await chai.request(app).post(UPLOAD_READINGS_ROUTE) // make request to api to upload readings data for this meter
 				.field('email', testUser.email)
@@ -90,7 +90,7 @@ mocha.describe('csv API', () => {
 			expect(res).to.have.status(200);
 			const readings = await Reading.getAllByMeterID(meter.id, conn);
 			const extractedReadings = readings.map(reading => {
-				return [`${reading.reading}`, reading.startTimestamp._i, reading.endTimestamp._i];
+				return [`${reading.reading}`, reading.startTimestamp.format('YYYY-MM-DD HH:mm:ssZ'), reading.endTimestamp.format('YYYY-MM-DD HH:mm:ssZ')];
 			});
 			const fileReadings = await parseCsv(readingsBuffer);
 			expect(extractedReadings).to.deep.equals(fileReadings);
@@ -109,7 +109,7 @@ mocha.describe('csv API', () => {
 			const meter = await Meter.getByName('ABG', conn);
 			const readings = await Reading.getAllByMeterID(meter.id, conn);
 			const extractedReadings = readings.map(reading => {
-				return [`${reading.reading}`, reading.startTimestamp._i, reading.endTimestamp._i];
+				return [`${reading.reading}`, reading.startTimestamp.format('YYYY-MM-DD HH:mm:ssZ'), reading.endTimestamp.format('YYYY-MM-DD HH:mm:ssZ')];
 			});
 			const fileReadings = await parseCsv(readingsBuffer);
 			expect(extractedReadings).to.deep.equals(fileReadings);
@@ -159,7 +159,7 @@ mocha.describe('csv API', () => {
 		});
 		mocha.it('should be able to load zipped readings data for an existing meter.', async () => {
 			const conn = testDB.getConnection();
-			const meter = new Meter(undefined, 'XXX', undefined, false, false, Meter.type.MAMAC, 'XXX')
+			const meter = new Meter(undefined, 'XXX', undefined, false, false, Meter.type.MAMAC, 'CST')
 			await meter.insert(conn); // insert meter
 			const res = await chai.request(app).post(UPLOAD_READINGS_ROUTE) // make request to api to upload readings data for this meter
 				.field('email', testUser.email)
@@ -171,7 +171,7 @@ mocha.describe('csv API', () => {
 			expect(res).to.have.status(200);
 			const readings = await Reading.getAllByMeterID(meter.id, conn);
 			const extractedReadings = readings.map(reading => {
-				return [`${reading.reading}`, reading.startTimestamp._i, reading.endTimestamp._i];
+				return [`${reading.reading}`, reading.startTimestamp.format('YYYY-MM-DD HH:mm:ssZ'), reading.endTimestamp.format('YYYY-MM-DD HH:mm:ssZ')];
 			});
 			const fileReadings = await parseCsv(readingsBuffer);
 			expect(extractedReadings).to.deep.equals(fileReadings);
@@ -188,7 +188,7 @@ mocha.describe('csv API', () => {
 			const meter = await Meter.getByName('ABG', conn);
 			const readings = await Reading.getAllByMeterID(meter.id, conn);
 			const extractedReadings = readings.map(reading => {
-				return [`${reading.reading}`, reading.startTimestamp._i, reading.endTimestamp._i];
+				return [`${reading.reading}`, reading.startTimestamp.format('YYYY-MM-DD HH:mm:ssZ'), reading.endTimestamp.format('YYYY-MM-DD HH:mm:ssZ')];
 			});
 			const fileReadings = await parseCsv(readingsBuffer);
 			expect(extractedReadings).to.deep.equals(fileReadings);
