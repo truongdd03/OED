@@ -29,9 +29,16 @@ router.use(optionalAuthenticator);
  */
 function formatGroupForResponse(item) {
 	return {
-		id: item.id, name: item.name, gps: item.gps, displayable: item.displayable,
-		note: item.note, area: item.area, defaultGraphicUnit: item.defaultGraphicUnit,
-		deepMeters: item.children
+		id: item.id,
+		name: item.name,
+		gps: item.gps,
+		displayable: item.displayable,
+		note: item.note,
+		area: item.area,
+		defaultGraphicUnit: item.defaultGraphicUnit,
+		deepMeters: item.children,
+		childGroups: item.childGroups,
+		childMeters: item.childMeters
 	};
 }
 
@@ -55,8 +62,12 @@ router.get('/', async (req, res) => {
 		// TODO??? currently have a separate route to get all children that should be removed or modified including uses.
 		deepChildren = [];
 		promises = await rows.map(async (row) => {
-			const deepChildren = await Group.getDeepMetersByGroupID(row.id, conn);
-			return { ...row, children: deepChildren };
+			const [meters, groups, deepMeters] = await Promise.all([
+				Group.getImmediateMetersByGroupID(row.id, conn),
+				Group.getImmediateGroupsByGroupID(row.id, conn),
+				Group.getDeepMetersByGroupID(row.id, conn)
+			]);
+			return { ...row, children: deepMeters, childMeters: meters, childGroups: groups };
 		})
 		Promise.all(promises).then(function (values) {
 			res.json(values.map(formatGroupForResponse));

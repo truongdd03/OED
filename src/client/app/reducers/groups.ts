@@ -38,9 +38,7 @@ export default function groups(state = defaultState, action: GroupsAction) {
 			const newGroups = action.data.map(group => ({
 				...group,
 				isFetching: false,
-				outdated: true,
-				childGroups: [],
-				childMeters: [],
+				outdated: false,
 				selectedGroups: [],
 				selectedMeters: []
 			}));

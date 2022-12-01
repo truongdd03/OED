@@ -27,6 +27,7 @@ export default function InitializationComponent() {
 	// Only run once by making it depend on an empty array.
 	useEffect(() => {
 		dispatch(fetchMetersDetailsIfNeeded());
+		// TODO: Should only fetch groups when the user is an admin and they view the group page.
 		dispatch(fetchGroupsDetailsIfNeeded());
 		dispatch(fetchPreferencesIfNeeded());
 		dispatch(fetchMapsDetails());

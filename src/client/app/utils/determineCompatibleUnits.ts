@@ -235,27 +235,20 @@ export async function assignChildToGroup(gid: number, childId: number, childType
 	// At the end, if the check fails or if admin doesn't want to apply the change, we set the redux state to this copy.
 	const oldGroup = JSON.parse(JSON.stringify(group));
 	// Add the child to this group.
-	// Note that the group's deep meters may be duplicated but that doesn't cause any problem to the check.
 	if (childType === DataType.Meter) {
 		group.childMeters.push(childId);
 		group.deepMeters.push(childId);
 	} else {
 		group.childGroups.push(childId);
-		group.deepMeters.push(...state.groups.byGroupID[childId].deepMeters);
+		// Uses set here so the deep meters are not duplicated.
+		const deepMeters = new Set(group.deepMeters.concat(state.groups.byGroupID[childId].deepMeters));
+		group.deepMeters = Array.from(deepMeters);
 	}
-	console.log('New group', group);
-	// Get the group's compatible units.
-	const compatibleUnits = unitsCompatibleWithMeters(new Set(group.deepMeters));
-	console.log('compatible units', compatibleUnits);
 	// Get all parent groups of this group.
 	const parentGroupIDs = await groupsApi.getParentIDs(gid);
-	console.log('Parent group', parentGroupIDs);
 	const shouldUpdate = await validateGroupPostAddChild(gid, parentGroupIDs);
 	// If the admin wants to apply changes.
 	if (shouldUpdate) {
-		console.log('UPDATE');
-		// Update the group. Now, the changes actually happen.
-		await applyChangesToGroup(group);
 		// Update related groups.
 		for (const parentID of parentGroupIDs) {
 			const parentGroup = state.groups.byGroupID[parentID] as GroupDefinition;
@@ -266,10 +259,11 @@ export async function assignChildToGroup(gid: number, childId: number, childType
 			if (compatibilityChangeCase === GroupCase.LostDefaultGraphicUnit) {
 				// For parent groups, only default graphic units are affected.
 				parentGroup.defaultGraphicUnit = -99;
-				console.log(`Update parent group ${parentGroup.name}`);
 				await applyChangesToGroup(parentGroup);
 			}
 		}
+		// Update the group. Now, the changes actually happen.
+		await applyChangesToGroup(group);
 	} else {
 		// Reset the redux state for this gorup.
 		state.groups.byGroupID[gid] = oldGroup;
@@ -315,10 +309,13 @@ async function validateGroupPostAddChild(gid: number, parentGroupIDs: number[]):
 	if (msg !== '') {
 		if (cancel) {
 			msg += '\nTHE CHANGE TO THE GROUP IS CANCELLED';
+			// If cancel is true, doesn't allow the admin to apply changes.
 			window.alert(msg);
+		} else {
+			msg += '\nGiven the messages, do you want to cancel this change or continue?';
+			// If msg is not empty, warns the admin and asks if they want to apply changes.
+			cancel = !window.confirm(msg);
 		}
-		msg += '\nGiven the messages, do you want to cancel this change or continue?';
-		cancel = !window.confirm(msg);
 	}
 	return !cancel;
 }
@@ -339,12 +336,11 @@ async function applyChangesToGroup(group: GroupDefinition): Promise<void> {
 		childMeters: group.childMeters,
 		defaultGraphicUnit: group.defaultGraphicUnit
 	} as GroupData & GroupID;
-	console.log('update', groupData);
 	const state = store.getState() as State;
 	// Update Redux state.
 	state.groups.byGroupID[group.id] = group;
 	// Update database.
-	// await groupsApi.edit(groupData);
+	await groupsApi.edit(groupData);
 }
 
 /**
@@ -371,7 +367,6 @@ export const enum GroupCase {
 function getCompatibilityChangeCase(currentCompatibleUnits: Set<number>, idToAdd: number, type: DataType, currentDefaultGraphicUnit: number): GroupCase {
 	// Determine the compatible units for meter or group represented by the id.
 	const newUnits = getCompatibleUnits(idToAdd, type);
-	console.log(currentCompatibleUnits, newUnits);
 	// Returns the associated case.
 	return groupCase(currentCompatibleUnits, newUnits, currentDefaultGraphicUnit);
 }
